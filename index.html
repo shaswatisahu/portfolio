@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Spotlight Dark Mode — Interactive</title>
+  <style>
+    :root{
+      --x: 50%; --y: 50%; --r: 20vmin; /* visual radius */
+      --smooth-x: 50%; --smooth-y: 50%; --smooth-r: 20vmin;
+    }
+    html,body{height:100%;margin:0;font-family:system-ui,Segoe UI,Roboto,Arial,sans-serif;background:#000}
+
+    /* page layer with background image */
+    .bg{
+      position:fixed;inset:0;background-image: url('assets/background.jpg');
+      background-size:cover;background-position:center center;transform:translateZ(0);
+      display:flex;align-items:center;justify-content:center;
+    }
+
+    /* content so the page looks like a simple hero */
+    .content{
+      z-index:1;color:#fff;text-align:center;padding:4rem;backdrop-filter: blur(2px) saturate(120%);
+      text-shadow:0 6px 18px rgba(0,0,0,0.6);
+      pointer-events:none; /* allow pointer to reach overlay for interactions */
+    }
+    h1{font-size:clamp(1.3rem,2.8vw,3rem);margin:0 0 .5rem}
+    p{opacity:.9;margin:0;font-size:clamp(.9rem,1.6vw,1.1rem)}
+
+    /* dark overlay that hides the page except the spotlight area */
+    .overlay{
+      position:fixed;inset:0;pointer-events:auto;z-index:2;mix-blend-mode:normal;
+      /* two layered radial gradients: inner transparent (reveals), outer soft glow + dark */
+      background:
+        radial-gradient(circle at var(--smooth-x) var(--smooth-y),
+          rgba(255,255,255,0.08) calc(var(--smooth-r) * 0.55),
+          rgba(0,0,0,0) calc(var(--smooth-r) * 0.6)),
+        radial-gradient(circle at var(--smooth-x) var(--smooth-y),
+          rgba(0,0,0,0) calc(var(--smooth-r) * 0.6),
+          rgba(0,0,0,0.88) calc(var(--smooth-r) * 1));
+      transition: background 160ms linear; /* small smoothing when radius changes */
+    }
+
+    /* small hint in bottom-left on large screens */
+    .hint{
+      position:fixed;left:1rem;bottom:1rem;color:#ddd;font-size:.9rem;z-index:4;opacity:.9;
+      background:rgba(0,0,0,0.35);padding:.45rem .7rem;border-radius:8px;backdrop-filter: blur(4px);
+    }
+
+    /* responsive adjustments */
+    @media (max-width:600px){
+      :root{--r:28vmin}
+      .content{padding:2rem}
+      .hint{display:none}
+    }
+
+    /* small accessible focus state for keyboard users (moves spotlight to center on space/enter)*/
+    .overlay:focus{outline:2px solid rgba(255,255,255,0.08)}
+  </style>
+</head>
+<body>
+  <div class="bg" aria-hidden="true">
+    <div class="content">
+      <h1>Interactive Spotlight — Dark Mode</h1>
+      <p>Move your mouse or touch the screen. Only the area under the pointer is bright — with a soft glowing edge.</p>
+    </div>
+  </div>
+
+  <div tabindex="0" class="overlay" id="overlay" aria-label="Dark overlay with spotlight"></div>
+  <div class="hint">Move your cursor or touch to reveal</div>
+
+  <script>
+    (function(){
+      const overlay = document.getElementById('overlay');
+      // target (raw) and smooth (displayed) coordinates
+      let tx = window.innerWidth/2, ty = window.innerHeight/2, tr = Math.max(window.innerWidth, window.innerHeight) * 0.2;
+      let sx = tx, sy = ty, sr = tr;
+
+      // convert px to percent for CSS vars
+      function setCSSVars(x,y,r){
+        const xp = (x / window.innerWidth) * 100;
+        const yp = (y / window.innerHeight) * 100;
+        overlay.style.setProperty('--smooth-x', xp + '%');
+        overlay.style.setProperty('--smooth-y', yp + '%');
+        overlay.style.setProperty('--smooth-r', r + 'px');
+      }
+
+      // LERP smoothing
+      function lerp(a,b,t){return a + (b-a) * t}
+
+      // animation loop to smoothly update the CSS variables
+      function loop(){
+        // ease factor - lower is smoother/slower
+        const ease = 0.14;
+        sx = lerp(sx, tx, ease);
+        sy = lerp(sy, ty, ease);
+        sr = lerp(sr, tr, ease);
+        setCSSVars(sx, sy, sr);
+        requestAnimationFrame(loop);
+      }
+
+      // pointer events
+      function onPointerMove(e){
+        const x = e.clientX ?? (e.touches && e.touches[0] && e.touches[0].clientX) ?? tx;
+        const y = e.clientY ?? (e.touches && e.touches[0] && e.touches[0].clientY) ?? ty;
+        tx = x; ty = y;
+      }
+
+      // change radius with wheel or pinch (ctrl+wheel)
+      function onWheel(e){
+        e.preventDefault();
+        // wheel up -> smaller radius (zoom in), wheel down -> bigger
+        tr += e.deltaY * 0.04; // sensitivity
+        tr = Math.max(Math.min(tr, Math.max(window.innerWidth,window.innerHeight)), 40);
+      }
+
+      // pointer enter sets a bigger glow; leave fades to small centered spot
+      overlay.addEventListener('pointermove', onPointerMove, {passive:true});
+      overlay.addEventListener('touchmove', function(e){onPointerMove(e);}, {passive:true});
+      overlay.addEventListener('wheel', onWheel, {passive:false});
+
+      overlay.addEventListener('pointerenter', function(){ tr = Math.max(window.innerWidth,window.innerHeight) * 0.18; });
+      overlay.addEventListener('pointerleave', function(){ tx = window.innerWidth/2; ty = window.innerHeight/2; tr = Math.max(window.innerWidth,window.innerHeight) * 0.12; });
+
+      // keyboard accessibility: center spotlight on Space/Enter
+      overlay.addEventListener('keydown', function(e){
+        if(e.code === 'Space' || e.code === 'Enter'){
+          tx = window.innerWidth/2; ty = window.innerHeight/2; tr = Math.max(window.innerWidth,window.innerHeight) * 0.25;
+        }
+      });
+
+      // update on resize
+      window.addEventListener('resize', function(){
+        tr = Math.max(window.innerWidth,window.innerHeight) * 0.2;
+      });
+
+      // initialize CSS vars and start loop
+      setCSSVars(sx, sy, sr);
+      requestAnimationFrame(loop);
+
+      // reduce motion preference: if user prefers reduced motion, reduce smoothing and remove glow animation
+      const mq = window.matchMedia('(prefers-reduced-motion: reduce)');
+      if(mq.matches){
+        // make movement immediate
+        overlay.style.transition = 'none';
+      }
+
+      // small trick: on first touch, focus overlay so keyboard users can tab to it
+      overlay.addEventListener('touchstart', ()=>overlay.focus(), {passive:true});
+
+    })();
+  </script>
+</body>
+</html>
