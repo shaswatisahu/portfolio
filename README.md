@@ -23,7 +23,7 @@
 
 - I am a **Frontend Developer** passionate about building modern and responsive websites.
 - I work with **HTML, CSS, JavaScript, and Java** for web development.
-- I also explore **databases like MongoDB, MySQL, and SQL**.
+- I also explore **databases like MySQL, and SQL**.
 - I enjoy designing clean UI and improving user experience.
 - I am continuously learning **modern web technologies and frontend frameworks**.
 
